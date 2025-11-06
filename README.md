@@ -10,6 +10,9 @@ A beautiful, fun, and easy-to-use trading and crypto investment platform with AI
 - 📉 **Technical Analysis** - RSI, MACD, Moving Averages (SMA 20/50/200), and trend analysis
 - 📱 **Beautiful Charts** - Interactive price charts with historical data
 - ⭐ **Watchlist** - Save your favorite assets for quick access
+- 💼 **Portfolio Tracking** - Track your holdings with real-time profit/loss calculations
+- 🔔 **Price Alerts** - Set price alerts and get notified when targets are hit
+- 💬 **Social Sentiment Analysis** - Analyze Reddit posts to gauge market sentiment
 - 🎨 **Modern UI** - Glassmorphism design with smooth animations
 
 ## 🛠️ Tech Stack
@@ -64,6 +67,28 @@ A beautiful, fun, and easy-to-use trading and crypto investment platform with AI
 2. Enter a stock symbol (e.g., AAPL, MSFT, TSLA)
 3. Click "Search" or use the quick buttons for popular stocks
 4. View real-time stock data and predictions
+
+### Portfolio Tracking
+1. Click the "+" button in the Portfolio panel
+2. Select asset type (Crypto or Stock)
+3. Enter symbol, name, quantity, and purchase price
+4. View real-time profit/loss calculations
+5. Prices update automatically every 30 seconds
+
+### Price Alerts
+1. Click the "+" button in the Price Alerts panel
+2. Select asset type and enter symbol/name
+3. Set condition (Above/Below) and target price
+4. Get notified when price hits your target
+5. Allow browser notifications for best experience
+
+### Social Sentiment Analysis
+1. Click on any crypto or stock card to view detailed analysis
+2. Scroll down to see the Social Sentiment panel in the sidebar
+3. View overall sentiment (positive/negative) based on Reddit posts
+4. Browse recent social media posts with sentiment labels
+5. Click on any post to view it on Reddit
+6. Posts are sorted by engagement (upvotes and comments)
 
 ### Understanding Predictions
 
@@ -122,11 +147,11 @@ next-level/
 
 ## 🎯 Future Enhancements
 
-- [ ] Portfolio tracking with profit/loss calculations
-- [ ] Price alerts and notifications
+- [x] Portfolio tracking with profit/loss calculations ✅
+- [x] Price alerts and notifications ✅
 - [ ] More advanced technical indicators
-- [ ] Social sentiment analysis
-- [ ] News integration for market context
+- [x] Social sentiment analysis ✅
+- [x] News integration for market context ✅
 - [ ] Mobile app using Expo
 - [ ] Backtesting capabilities
 - [ ] Paper trading simulator

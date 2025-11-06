@@ -13,13 +13,23 @@ export async function GET(request: Request) {
     if (action === 'top' || (!id && !query && !action)) {
       const limitNum = limit ? parseInt(limit) : 20;
       const data = await getTopCryptos(limitNum);
+      
+      // Check if data is valid
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        return NextResponse.json(
+          { error: 'No cryptocurrency data available. The API may be rate-limited or unavailable. Please try again in a moment.' },
+          { status: 503 }
+        );
+      }
+      
       return NextResponse.json(data);
     }
 
     // Handle search request
     if (query) {
       const results = await searchCryptos(query);
-      return NextResponse.json(results);
+      // Always return an array, even if empty
+      return NextResponse.json(Array.isArray(results) ? results : []);
     }
 
     // Handle individual crypto by ID

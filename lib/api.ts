@@ -34,6 +34,7 @@ export interface StockData {
   high: number;
   low: number;
   open: number;
+  marketCap?: number; // Market capitalization in USD
 }
 
 export interface HistoricalData {
@@ -46,12 +47,48 @@ export interface HistoricalData {
 export async function getTopCryptos(limit: number = 20): Promise<CryptoData[]> {
   try {
     const response = await axios.get(
-      `${COINGECKO_API}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${limit}&page=1&sparkline=true&price_change_percentage=24h`
+      `${COINGECKO_API}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${limit}&page=1&sparkline=true&price_change_percentage=24h`,
+      {
+        timeout: 10000, // 10 second timeout
+        validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+      }
     );
+    
+    // Check if response is valid
+    if (response.status === 429) {
+      console.error('CoinGecko API rate limit exceeded');
+      throw new Error('API rate limit exceeded. Please try again in a moment.');
+    }
+    
+    if (response.status !== 200 || !response.data) {
+      console.error('Invalid response from CoinGecko API:', response.status);
+      throw new Error('Failed to fetch cryptocurrency data from API');
+    }
+    
+    // Check if data is an array
+    if (!Array.isArray(response.data)) {
+      console.error('Invalid data format from CoinGecko API');
+      throw new Error('Invalid data format received from API');
+    }
+    
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching crypto data:', error);
-    return [];
+    
+    // Re-throw with a more descriptive error message
+    if (error.response) {
+      // API returned an error response
+      if (error.response.status === 429) {
+        throw new Error('API rate limit exceeded. Please wait a moment and try again.');
+      }
+      throw new Error(`API error: ${error.response.status} - ${error.response.statusText}`);
+    } else if (error.request) {
+      // Request was made but no response received
+      throw new Error('No response from API. Please check your internet connection.');
+    } else {
+      // Error setting up the request
+      throw new Error(error.message || 'Failed to fetch cryptocurrency data');
+    }
   }
 }
 
@@ -128,6 +165,26 @@ export async function getStockQuote(symbol: string): Promise<StockData | null> {
         throw new Error(`No price data available for "${symbol.toUpperCase()}"`);
       }
 
+      // Try to get market cap from Yahoo Finance meta
+      // Yahoo Finance provides marketCap in different possible locations
+      // Check multiple possible field names
+      const marketCap = meta.marketCap || 
+                       meta.marketMarketCap ||
+                       meta.regularMarketMarketCap ||
+                       meta.trailingMarketCap ||
+                       (meta.sharesOutstanding && currentPrice ? meta.sharesOutstanding * currentPrice : undefined);
+      
+      // Log for debugging (can be removed in production)
+      if (!marketCap && process.env.NODE_ENV === 'development') {
+        console.log('Market cap fields available:', {
+          marketCap: meta.marketCap,
+          marketMarketCap: meta.marketMarketCap,
+          regularMarketMarketCap: meta.regularMarketMarketCap,
+          sharesOutstanding: meta.sharesOutstanding,
+          availableFields: Object.keys(meta).filter(k => k.toLowerCase().includes('cap') || k.toLowerCase().includes('market'))
+        });
+      }
+
       return {
         symbol: meta.symbol,
         name: meta.longName || meta.shortName || meta.symbol,
@@ -138,6 +195,7 @@ export async function getStockQuote(symbol: string): Promise<StockData | null> {
         high: meta.regularMarketDayHigh || meta.currentTradingPeriod?.regular?.high || currentPrice,
         low: meta.regularMarketDayLow || meta.currentTradingPeriod?.regular?.low || currentPrice,
         open: meta.regularMarketOpen || meta.currentTradingPeriod?.regular?.open || previousClose,
+        marketCap: marketCap,
       };
     }
 
@@ -187,6 +245,8 @@ export async function getStockQuote(symbol: string): Promise<StockData | null> {
       const changePercentStr = quote['10. change percent'] || '0%';
       const changePercent = parseFloat(changePercentStr.replace('%', ''));
 
+      // Alpha Vantage doesn't provide market cap directly, so we'll leave it undefined
+      // The UI will handle showing '--' if market cap is not available
       return {
         symbol: quote['01. symbol'],
         name: quote['01. symbol'],
@@ -197,6 +257,7 @@ export async function getStockQuote(symbol: string): Promise<StockData | null> {
         high: parseFloat(quote['03. high'] || '0'),
         low: parseFloat(quote['04. low'] || '0'),
         open: parseFloat(quote['02. open'] || '0'),
+        marketCap: undefined, // Alpha Vantage doesn't provide market cap
       };
     } catch (alphaError: any) {
       // If both fail, provide a helpful error message
@@ -323,7 +384,11 @@ export async function searchCryptos(query: string): Promise<CryptoData[]> {
     // Encode the query to handle special characters
     const encodedQuery = encodeURIComponent(query.trim());
     const response = await axios.get(
-      `${COINGECKO_API}/search?query=${encodedQuery}`
+      `${COINGECKO_API}/search?query=${encodedQuery}`,
+      {
+        timeout: 10000,
+        validateStatus: (status) => status < 500,
+      }
     );
     
     // Check if response has coins
@@ -339,7 +404,11 @@ export async function searchCryptos(query: string): Promise<CryptoData[]> {
     }
     
     const marketResponse = await axios.get(
-      `${COINGECKO_API}/coins/markets?vs_currency=usd&ids=${ids}&sparkline=true&price_change_percentage=24h`
+      `${COINGECKO_API}/coins/markets?vs_currency=usd&ids=${ids}&sparkline=true&price_change_percentage=24h`,
+      {
+        timeout: 10000,
+        validateStatus: (status) => status < 500,
+      }
     );
     
     // Check if market data is valid
@@ -350,8 +419,8 @@ export async function searchCryptos(query: string): Promise<CryptoData[]> {
     return marketResponse.data;
   } catch (error: any) {
     console.error('Error searching cryptos:', error);
-    // Re-throw the error so the component can handle it
-    throw new Error(error.response?.data?.error || 'Failed to search cryptocurrencies');
+    // Return empty array instead of throwing - let the UI handle "no results"
+    return [];
   }
 }
 
