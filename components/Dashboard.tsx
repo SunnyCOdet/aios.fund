@@ -7,7 +7,6 @@ import StockCard from './StockCard';
 import PredictionPanel from './PredictionPanel';
 import Watchlist from './Watchlist';
 import StockSearch from './StockSearch';
-import { getTopCryptos, searchCryptos } from '@/lib/api';
 import type { CryptoData, StockData } from '@/lib/api';
 
 export default function Dashboard() {
@@ -27,7 +26,11 @@ export default function Dashboard() {
     setSearchError('');
     setSearchQuery(''); // Clear search query when reloading
     try {
-      const data = await getTopCryptos(20);
+      const response = await fetch('/api/crypto?action=top&limit=20');
+      if (!response.ok) {
+        throw new Error('Failed to fetch market data');
+      }
+      const data = await response.json();
       if (data && data.length > 0) {
         setCryptos(data);
       } else {
@@ -60,7 +63,11 @@ export default function Dashboard() {
     // Search for cryptocurrencies
     setLoading(true);
     try {
-      const results = await searchCryptos(query);
+      const response = await fetch(`/api/crypto?query=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+      const results = await response.json();
       if (results && results.length > 0) {
         setCryptos(results);
       } else {

@@ -87,8 +87,8 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
         ? (asset as StockData).symbol 
         : (asset as CryptoData).name;
       
-      // Fetch more news articles (20 instead of 10)
-      const response = await fetch(`/api/news?query=${encodeURIComponent(query)}&limit=20`);
+      // Fetch more news articles with asset type for smart query generation
+      const response = await fetch(`/api/news?query=${encodeURIComponent(query)}&limit=20&type=${type}`);
       if (response.ok) {
         const data = await response.json();
         setNews(data.articles || []);
@@ -236,8 +236,7 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-400">News Sentiment</span>
               <span className={`text-sm font-bold ${
-                sentiment.overall === 'positive' ? 'text-white' :
-                sentiment.overall === 'negative' ? 'text-gray-500' : 'text-gray-400'
+                sentiment.overall === 'positive' ? 'text-white' : 'text-gray-500'
               }`}>
                 {sentiment.overall.toUpperCase()}
               </span>
@@ -250,10 +249,6 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-400">Negative:</span>
                 <span className="text-gray-500 font-semibold">{sentiment.negative.toFixed(1)}%</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Neutral:</span>
-                <span className="text-gray-400 font-semibold">{sentiment.neutral.toFixed(1)}%</span>
               </div>
             </div>
             <div className="mt-2 pt-2 border-t border-white/[0.05]">
@@ -406,25 +401,52 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
 
         {activeTab === 'news' && (
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {news.length > 0 ? (
-              news.map((article, idx) => (
-                <a
-                  key={idx}
-                  href={article.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-black/20 rounded-lg p-3 border border-white/[0.05] hover:bg-black/30 transition-colors cursor-pointer"
-                >
-                  <h5 className="font-semibold text-white text-sm mb-1 hover:underline">{article.title}</h5>
-                  <p className="text-gray-400 text-xs mb-2 line-clamp-2">{article.description}</p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">{article.source}</span>
-                    <span className="text-gray-500">
-                      {new Date(article.publishedAt).toLocaleDateString()}
-                    </span>
+            {loading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
+                <p className="text-gray-400">Searching news sources...</p>
+                <p className="text-xs text-gray-500 mt-2">Bloomberg, Reuters, CNBC, FT, MarketWatch, WSJ, Forbes, Seeking Alpha, Investing.com, Barron's, CoinDesk, CoinTelegraph</p>
+              </div>
+            ) : news.length > 0 ? (
+              <>
+                <div className="bg-black/20 rounded-lg p-3 border border-white/[0.05] mb-4">
+                  <p className="text-xs text-gray-400 mb-2">Searched Sources:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['Bloomberg', 'Reuters', 'CNBC', 'Financial Times', 'MarketWatch', 'Yahoo Finance', 'Wall Street Journal', 'Forbes', 'Seeking Alpha', 'Investing.com', 'Barron\'s', 'CoinDesk', 'CoinTelegraph'].map((source) => (
+                      <span key={source} className="text-xs px-2 py-1 bg-white/[0.05] rounded text-gray-400">
+                        {source}
+                      </span>
+                    ))}
                   </div>
-                </a>
-              ))
+                </div>
+                {news.map((article, idx) => (
+                  <a
+                    key={idx}
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block bg-black/20 rounded-lg p-3 border border-white/[0.05] hover:bg-black/30 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h5 className="font-semibold text-white text-sm hover:underline flex-1">{article.title}</h5>
+                      <span className={`ml-2 px-2 py-1 rounded text-xs font-semibold flex-shrink-0 ${
+                        article.sentiment === 'positive' 
+                          ? 'bg-white/[0.2] text-white' 
+                          : 'bg-gray-500/[0.2] text-gray-400'
+                      }`}>
+                        {article.sentiment === 'positive' ? 'POSITIVE' : 'NEGATIVE'}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-xs mb-2 line-clamp-2">{article.description}</p>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">{article.source}</span>
+                      <span className="text-gray-500">
+                        {new Date(article.publishedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </a>
+                ))}
+              </>
             ) : (
               <p className="text-gray-400 text-center py-8">No news available</p>
             )}

@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('query');
   const limit = parseInt(searchParams.get('limit') || '10');
+  const assetType = searchParams.get('type') as 'crypto' | 'stock' | null;
 
   if (!query) {
     return NextResponse.json(
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const articles = await getMarketNews(query, limit);
+    const articles = await getMarketNews(query, limit, assetType || undefined);
     const sentiment = analyzeNewsSentiment(articles);
 
     return NextResponse.json({
