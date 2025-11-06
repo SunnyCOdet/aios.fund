@@ -87,8 +87,8 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
         ? (asset as StockData).symbol 
         : (asset as CryptoData).name;
       
-      // Fetch more news articles with asset type for smart query generation
-      const response = await fetch(`/api/news?query=${encodeURIComponent(query)}&limit=20&type=${type}`);
+      // Fetch all news articles with asset type for smart query generation
+      const response = await fetch(`/api/news?query=${encodeURIComponent(query)}&limit=1000&type=${type}`);
       if (response.ok) {
         const data = await response.json();
         setNews(data.articles || []);

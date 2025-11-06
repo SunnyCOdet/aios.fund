@@ -4,7 +4,7 @@ import { getMarketNews, analyzeNewsSentiment } from '@/lib/news';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('query');
-  const limit = parseInt(searchParams.get('limit') || '10');
+  const limit = parseInt(searchParams.get('limit') || '1000'); // Default to 1000 to show all articles
   const assetType = searchParams.get('type') as 'crypto' | 'stock' | null;
 
   if (!query) {

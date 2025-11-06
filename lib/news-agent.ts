@@ -712,8 +712,36 @@ export async function getMarketNews(
 
     console.log(`[News Agent] Price-moving articles: ${priceMovingArticles.length}, General articles: ${generalArticles.length}`);
     
-    // Prioritize price-moving articles, but include some general articles if needed
-    // Use 80% price-moving, 20% general (or all price-moving if we have enough)
+    // Prioritize price-moving articles, but include all if limit is high enough
+    // If limit is very high (>= 500), return all articles, prioritizing price-moving first
+    if (limit >= 500) {
+      // Return all articles, with price-moving articles first
+      const filteredArticles = [
+        ...priceMovingArticles,
+        ...generalArticles
+      ];
+      
+      console.log(`[News Agent] After quant filtering: ${filteredArticles.length} articles (${priceMovingArticles.length} price-moving)`);
+      
+      // Remove duplicates based on URL
+      const uniqueArticles = Array.from(
+        new Map(filteredArticles.map(article => [
+          article.url.split('?')[0].split('#')[0],
+          article
+        ])).values()
+      );
+
+      console.log(`[News Agent] After deduplication: ${uniqueArticles.length} articles`);
+
+      // Sort by date (newest first) - no limit applied
+      const finalArticles = uniqueArticles
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      
+      console.log(`[News Agent] Final articles to return: ${finalArticles.length} (all articles, no limit)`);
+      return finalArticles;
+    }
+    
+    // For smaller limits, use 80% price-moving, 20% general
     const targetPriceMoving = Math.min(priceMovingArticles.length, Math.ceil(limit * 0.8));
     const targetGeneral = Math.min(generalArticles.length, limit - targetPriceMoving);
     
@@ -734,12 +762,15 @@ export async function getMarketNews(
 
     console.log(`[News Agent] After deduplication: ${uniqueArticles.length} articles`);
 
-    // Sort by date and limit
-    const finalArticles = uniqueArticles
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-      .slice(0, limit);
+    // Sort by date - apply limit only if it's reasonable (< 500)
+    const sortedArticles = uniqueArticles
+      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
     
-    console.log(`[News Agent] Final articles to return: ${finalArticles.length}`);
+    const finalArticles = limit >= 500 
+      ? sortedArticles // Return all articles if limit is high
+      : sortedArticles.slice(0, limit); // Apply limit for smaller requests
+    
+    console.log(`[News Agent] Final articles to return: ${finalArticles.length}${limit >= 500 ? ' (all articles)' : ''}`);
     return finalArticles;
   } catch (error) {
     console.error('[News Agent] Error in getMarketNews:', error);
