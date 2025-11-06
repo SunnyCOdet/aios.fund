@@ -118,6 +118,35 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
         ? (asset as StockData).changePercent 
         : (asset as CryptoData).price_change_percentage_24h;
 
+      // Scrape full article content from top news articles
+      const newsWithContent = await Promise.all(
+        news.slice(0, 5).map(async (article) => {
+          if (article.url && article.url !== '#') {
+            try {
+              const scrapeResponse = await fetch('/api/scrape-article', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: article.url }),
+              });
+              
+              if (scrapeResponse.ok) {
+                const scraped = await scrapeResponse.json();
+                return {
+                  ...article,
+                  fullContent: scraped.content || article.description,
+                };
+              }
+            } catch (error) {
+              console.error('Error scraping article:', error);
+            }
+          }
+          return {
+            ...article,
+            fullContent: article.description, // Fallback to description
+          };
+        })
+      );
+
       const response = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,7 +158,7 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
           priceChange,
           priceChangePercent,
           indicators,
-          news,
+          news: newsWithContent,
           sentiment,
         }),
       });
@@ -379,8 +408,14 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {news.length > 0 ? (
               news.map((article, idx) => (
-                <div key={idx} className="bg-black/20 rounded-lg p-3 border border-white/[0.05]">
-                  <h5 className="font-semibold text-white text-sm mb-1">{article.title}</h5>
+                <a
+                  key={idx}
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-black/20 rounded-lg p-3 border border-white/[0.05] hover:bg-black/30 transition-colors cursor-pointer"
+                >
+                  <h5 className="font-semibold text-white text-sm mb-1 hover:underline">{article.title}</h5>
                   <p className="text-gray-400 text-xs mb-2 line-clamp-2">{article.description}</p>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-500">{article.source}</span>
@@ -388,7 +423,7 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
                       {new Date(article.publishedAt).toLocaleDateString()}
                     </span>
                   </div>
-                </div>
+                </a>
               ))
             ) : (
               <p className="text-gray-400 text-center py-8">No news available</p>
@@ -401,7 +436,8 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
             {loadingAI ? (
               <div className="text-center py-8">
                 <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-400">Generating AI analysis...</p>
+                <p className="text-gray-400">Scraping articles and generating AI analysis...</p>
+                <p className="text-xs text-gray-500 mt-2">This may take a moment...</p>
               </div>
             ) : aiAnalysis && !loading ? (
               <>

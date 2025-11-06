@@ -7,6 +7,7 @@ export interface NewsArticle {
   publishedAt: string;
   source: string;
   sentiment?: 'positive' | 'negative' | 'neutral';
+  fullContent?: string; // Full article content after scraping
 }
 
 // Fetch news from multiple free sources

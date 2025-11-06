@@ -39,8 +39,10 @@ Technical Indicators:
 Market Sentiment:
 - News Sentiment: ${sentiment.overall} (${sentiment.positive.toFixed(1)}% positive, ${sentiment.negative.toFixed(1)}% negative)
 
-Recent News Headlines:
-${news.slice(0, 5).map((n: any) => `- ${n.title}`).join('\n')}
+Recent News Articles (Full Content):
+${news.slice(0, 5).map((n: any, idx: number) => 
+  `Article ${idx + 1}: ${n.title}\n${n.fullContent || n.description || 'Content not available'}\n---`
+).join('\n\n')}
 
 Please provide:
 1. A brief summary (2-3 sentences)
