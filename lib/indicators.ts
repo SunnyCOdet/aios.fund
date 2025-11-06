@@ -15,6 +15,9 @@ export interface TechnicalIndicators {
 interface PricePoint {
   price: number;
   date: string;
+  high?: number;
+  low?: number;
+  volume?: number;
 }
 
 // Calculate RSI (Relative Strength Index)
@@ -252,10 +255,10 @@ export function calculateIndicators(
   // For Stochastic and ADX, we need high/low data
   // If historical data has high/low, use them; otherwise estimate
   const highs = historicalData.length > 0 && historicalData[0].high !== undefined
-    ? historicalData.map(d => (d as any).high || d.price)
+    ? historicalData.map(d => d.high || d.price)
     : prices.map(p => p * 1.02); // Estimate 2% higher
   const lows = historicalData.length > 0 && historicalData[0].low !== undefined
-    ? historicalData.map(d => (d as any).low || d.price)
+    ? historicalData.map(d => d.low || d.price)
     : prices.map(p => p * 0.98); // Estimate 2% lower
 
   const stochastic = calculateStochastic(highs, lows, prices, 14, 3);

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import type { CryptoData } from '@/lib/api';
 
@@ -19,7 +20,7 @@ export default function CryptoCard({ crypto, onClick }: CryptoCardProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
           {crypto.image && (
-            <img
+            <Image
               src={crypto.image}
               alt={crypto.name}
               width={48}

@@ -259,10 +259,10 @@ export async function getStockHistory(
               volume: quotes.volume[index] || 0,
             };
           })
-          .filter(item => item.price > 0); // Filter out invalid prices
+          .filter((item: { date: string; price: number; high: number; low: number; volume: number }) => item.price > 0); // Filter out invalid prices
         
         // Sort by date (oldest first) for indicators calculation
-        return history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return history.sort((a: { date: string; price: number; high: number; low: number; volume: number }, b: { date: string; price: number; high: number; low: number; volume: number }) => new Date(a.date).getTime() - new Date(b.date).getTime());
       }
     }
 

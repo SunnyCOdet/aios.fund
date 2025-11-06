@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { Star, Plus } from 'lucide-react';
 import { getTopCryptos } from '@/lib/api';
@@ -57,9 +58,11 @@ export default function Watchlist() {
             >
               <div className="flex items-center gap-3">
                 {crypto.image && (
-                  <img
+                  <Image
                     src={crypto.image}
                     alt={crypto.name}
+                    width={32}
+                    height={32}
                     className="w-8 h-8 rounded-full"
                   />
                 )}

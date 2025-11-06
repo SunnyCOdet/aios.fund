@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Activity, BarChart3, Newspaper, Brain, Sparkles, Loader2 } from 'lucide-react';
 import PriceChart from './PriceChart';
 import ApiKeySettings from './ApiKeySettings';
@@ -23,17 +23,25 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
   const [loadingAI, setLoadingAI] = useState(false);
   const [activeTab, setActiveTab] = useState<'indicators' | 'news' | 'ai'>('indicators');
 
-  useEffect(() => {
-    // Reset all states when asset changes
-    setAiAnalysis(null);
-    setNews([]);
-    setSentiment(null);
-    setLoadingAI(false);
-    setActiveTab('indicators'); // Reset to indicators tab when asset changes
-    loadData();
-  }, [asset]);
+  const loadNews = useCallback(async () => {
+    try {
+      const query = type === 'stock' 
+        ? (asset as StockData).symbol 
+        : (asset as CryptoData).name;
+      
+      // Fetch all news articles with asset type for smart query generation
+      const response = await fetch(`/api/news?query=${encodeURIComponent(query)}&limit=1000&type=${type}`);
+      if (response.ok) {
+        const data = await response.json();
+        setNews(data.articles || []);
+        setSentiment(data.sentiment || {});
+      }
+    } catch (error) {
+      console.error('Error loading news:', error);
+    }
+  }, [asset, type]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     // Clear previous AI analysis when loading new data
     setAiAnalysis(null);
@@ -79,25 +87,17 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [asset, type, loadNews]);
 
-  const loadNews = async () => {
-    try {
-      const query = type === 'stock' 
-        ? (asset as StockData).symbol 
-        : (asset as CryptoData).name;
-      
-      // Fetch all news articles with asset type for smart query generation
-      const response = await fetch(`/api/news?query=${encodeURIComponent(query)}&limit=1000&type=${type}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNews(data.articles || []);
-        setSentiment(data.sentiment || {});
-      }
-    } catch (error) {
-      console.error('Error loading news:', error);
-    }
-  };
+  useEffect(() => {
+    // Reset all states when asset changes
+    setAiAnalysis(null);
+    setNews([]);
+    setSentiment(null);
+    setLoadingAI(false);
+    setActiveTab('indicators'); // Reset to indicators tab when asset changes
+    loadData();
+  }, [asset, loadData]);
 
   const loadAIAnalysis = async () => {
     const apiKey = localStorage.getItem('gemini_api_key');
@@ -191,7 +191,7 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
 
   if (!indicators) return null;
 
-  const recommendationColors = {
+  const recommendationColors: Record<'buy' | 'sell' | 'hold', string> = {
     buy: 'bg-white/[0.1] text-white border-white/[0.2]',
     sell: 'bg-gray-800 text-gray-400 border-gray-600',
     hold: 'bg-white/[0.05] text-gray-300 border-white/[0.1]',
@@ -199,6 +199,8 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
 
   const assetName = type === 'crypto' ? (asset as CryptoData).name : (asset as StockData).name;
   const currentPrice = type === 'stock' ? (asset as StockData).price : (asset as CryptoData).current_price;
+  const recommendation = (indicators.recommendation as 'buy' | 'sell' | 'hold') || 'hold';
+  const recommendationColor = recommendationColors[recommendation] || recommendationColors.hold;
 
   return (
     <div className="space-y-6">
@@ -211,17 +213,17 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
         </div>
 
         {/* Recommendation */}
-        <div className={`p-4 rounded-lg border ${recommendationColors[indicators.recommendation]}`}>
+        <div className={`p-4 rounded-lg border ${recommendationColor}`}>
           <div className="flex items-center justify-between mb-2">
-            <span className="font-bold uppercase text-white">{indicators.recommendation}</span>
+            <span className="font-bold uppercase text-white">{recommendation}</span>
             <span className="text-sm text-gray-400">{indicators.confidence.toFixed(0)}% confidence</span>
           </div>
           <div className="w-full bg-black/30 rounded-full h-2 mt-2">
             <div
               className={`h-2 rounded-full ${
-                indicators.recommendation === 'buy'
+                recommendation === 'buy'
                   ? 'bg-white'
-                  : indicators.recommendation === 'sell'
+                  : recommendation === 'sell'
                   ? 'bg-gray-600'
                   : 'bg-gray-400'
               }`}
@@ -405,14 +407,14 @@ export default function PredictionPanel({ asset, type }: PredictionPanelProps) {
               <div className="text-center py-8">
                 <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-400">Searching news sources...</p>
-                <p className="text-xs text-gray-500 mt-2">Bloomberg, Reuters, CNBC, FT, MarketWatch, WSJ, Forbes, Seeking Alpha, Investing.com, Barron's, CoinDesk, CoinTelegraph</p>
+                <p className="text-xs text-gray-500 mt-2">Bloomberg, Reuters, CNBC, FT, MarketWatch, WSJ, Forbes, Seeking Alpha, Investing.com, Barron&apos;s, CoinDesk, CoinTelegraph</p>
               </div>
             ) : news.length > 0 ? (
               <>
                 <div className="bg-black/20 rounded-lg p-3 border border-white/[0.05] mb-4">
                   <p className="text-xs text-gray-400 mb-2">Searched Sources:</p>
                   <div className="flex flex-wrap gap-2">
-                    {['Bloomberg', 'Reuters', 'CNBC', 'Financial Times', 'MarketWatch', 'Yahoo Finance', 'Wall Street Journal', 'Forbes', 'Seeking Alpha', 'Investing.com', 'Barron\'s', 'CoinDesk', 'CoinTelegraph'].map((source) => (
+                    {['Bloomberg', 'Reuters', 'CNBC', 'Financial Times', 'MarketWatch', 'Yahoo Finance', 'Wall Street Journal', 'Forbes', 'Seeking Alpha', 'Investing.com', 'Barron&apos;s', 'CoinDesk', 'CoinTelegraph'].map((source) => (
                       <span key={source} className="text-xs px-2 py-1 bg-white/[0.05] rounded text-gray-400">
                         {source}
                       </span>
