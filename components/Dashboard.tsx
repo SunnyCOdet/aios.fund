@@ -10,6 +10,7 @@ import StockSearch from './StockSearch';
 import Portfolio from './Portfolio';
 import PriceAlerts from './PriceAlerts';
 import SentimentPanel from './SentimentPanel';
+import QuantAnalysisPanel from './QuantAnalysisPanel';
 import type { CryptoData, StockData } from '@/lib/api';
 
 export default function Dashboard() {
@@ -512,6 +513,16 @@ export default function Dashboard() {
           {selectedAsset && (
             <>
               <PredictionPanel asset={selectedAsset} type={selectedAssetType} />
+              <QuantAnalysisPanel
+                symbol={
+                  selectedAssetType === 'crypto'
+                    ? (selectedAsset as CryptoData).id || (selectedAsset as CryptoData).symbol || ''
+                    : (selectedAsset as StockData).symbol || ''
+                }
+                name={selectedAsset.name || ''}
+                assetType={selectedAssetType}
+                geminiApiKey={typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key') || undefined : undefined}
+              />
               <SentimentPanel asset={selectedAsset} type={selectedAssetType} />
             </>
           )}
