@@ -254,6 +254,8 @@ export async function getStockHistory(
             return {
               date: new Date(timestamp * 1000).toISOString(),
               price: price,
+              high: quotes.high[index] || quotes.open[index] || price,
+              low: quotes.low[index] || quotes.open[index] || price,
               volume: quotes.volume[index] || 0,
             };
           })

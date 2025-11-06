@@ -4,6 +4,9 @@ export interface TechnicalIndicators {
   sma20: number;
   sma50: number;
   sma200: number;
+  bollinger: { upper: number; middle: number; lower: number };
+  stochastic: { k: number; d: number };
+  adx: number;
   trend: 'bullish' | 'bearish' | 'neutral';
   recommendation: 'buy' | 'sell' | 'hold';
   confidence: number;
@@ -91,6 +94,126 @@ export function calculateMACD(prices: number[]): {
   };
 }
 
+// Calculate Bollinger Bands
+export function calculateBollingerBands(prices: number[], period: number = 20, stdDev: number = 2): {
+  upper: number;
+  middle: number;
+  lower: number;
+} {
+  if (prices.length < period) {
+    const lastPrice = prices[prices.length - 1] || 0;
+    return { upper: lastPrice, middle: lastPrice, lower: lastPrice };
+  }
+
+  const sma = calculateSMA(prices, period);
+  const slice = prices.slice(-period);
+  
+  // Calculate standard deviation
+  const variance = slice.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / period;
+  const standardDeviation = Math.sqrt(variance);
+
+  return {
+    upper: sma + (standardDeviation * stdDev),
+    middle: sma,
+    lower: sma - (standardDeviation * stdDev),
+  };
+}
+
+// Calculate Stochastic Oscillator
+export function calculateStochastic(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  kPeriod: number = 14,
+  dPeriod: number = 3
+): { k: number; d: number } {
+  if (closes.length < kPeriod) {
+    return { k: 50, d: 50 };
+  }
+
+  const slice = closes.slice(-kPeriod);
+  const highSlice = highs.slice(-kPeriod);
+  const lowSlice = lows.slice(-kPeriod);
+
+  const highestHigh = Math.max(...highSlice);
+  const lowestLow = Math.min(...lowSlice);
+  const currentClose = closes[closes.length - 1];
+
+  if (highestHigh === lowestLow) {
+    return { k: 50, d: 50 };
+  }
+
+  const k = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
+
+  // Calculate %D (simple moving average of %K)
+  const kValues = [];
+  for (let i = closes.length - dPeriod; i < closes.length; i++) {
+    if (i >= kPeriod - 1) {
+      const periodHighs = highs.slice(i - kPeriod + 1, i + 1);
+      const periodLows = lows.slice(i - kPeriod + 1, i + 1);
+      const periodCloses = closes.slice(i - kPeriod + 1, i + 1);
+      const hh = Math.max(...periodHighs);
+      const ll = Math.min(...periodLows);
+      if (hh !== ll) {
+        kValues.push(((periodCloses[periodCloses.length - 1] - ll) / (hh - ll)) * 100);
+      }
+    }
+  }
+  const d = kValues.length > 0 ? kValues.reduce((a, b) => a + b, 0) / kValues.length : k;
+
+  return { k, d };
+}
+
+// Calculate ADX (Average Directional Index)
+export function calculateADX(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period: number = 14
+): number {
+  if (highs.length < period * 2 || lows.length < period * 2 || closes.length < period * 2) {
+    return 25; // Neutral ADX
+  }
+
+  const trueRanges = [];
+  const plusDMs = [];
+  const minusDMs = [];
+
+  for (let i = 1; i < closes.length; i++) {
+    const tr1 = highs[i] - lows[i];
+    const tr2 = Math.abs(highs[i] - closes[i - 1]);
+    const tr3 = Math.abs(lows[i] - closes[i - 1]);
+    trueRanges.push(Math.max(tr1, tr2, tr3));
+
+    const plusDM = highs[i] > highs[i - 1] ? highs[i] - highs[i - 1] : 0;
+    const minusDM = lows[i] < lows[i - 1] ? lows[i - 1] - lows[i] : 0;
+    
+    if (plusDM > minusDM) {
+      plusDMs.push(plusDM);
+      minusDMs.push(0);
+    } else if (minusDM > plusDM) {
+      plusDMs.push(0);
+      minusDMs.push(minusDM);
+    } else {
+      plusDMs.push(0);
+      minusDMs.push(0);
+    }
+  }
+
+  if (trueRanges.length < period) {
+    return 25;
+  }
+
+  const atr = trueRanges.slice(-period).reduce((a, b) => a + b, 0) / period;
+  const plusDI = plusDMs.slice(-period).reduce((a, b) => a + b, 0) / period;
+  const minusDI = minusDMs.slice(-period).reduce((a, b) => a + b, 0) / period;
+
+  if (atr === 0) return 25;
+
+  const dx = (Math.abs(plusDI - minusDI) / (plusDI + minusDI)) * 100;
+  return isNaN(dx) ? 25 : Math.min(Math.max(dx, 0), 100);
+}
+
 // Calculate all technical indicators and generate prediction
 export function calculateIndicators(
   historicalData: PricePoint[]
@@ -107,6 +230,9 @@ export function calculateIndicators(
       sma20: lastPrice,
       sma50: lastPrice,
       sma200: lastPrice,
+      bollinger: { upper: lastPrice, middle: lastPrice, lower: lastPrice },
+      stochastic: { k: 50, d: 50 },
+      adx: 25,
       trend: 'neutral',
       recommendation: 'hold',
       confidence: 0,
@@ -121,6 +247,19 @@ export function calculateIndicators(
   const sma20 = calculateSMA(prices, 20);
   const sma50 = calculateSMA(prices, 50);
   const sma200 = calculateSMA(prices, 200);
+  const bollinger = calculateBollingerBands(prices, 20, 2);
+
+  // For Stochastic and ADX, we need high/low data
+  // If historical data has high/low, use them; otherwise estimate
+  const highs = historicalData.length > 0 && historicalData[0].high !== undefined
+    ? historicalData.map(d => (d as any).high || d.price)
+    : prices.map(p => p * 1.02); // Estimate 2% higher
+  const lows = historicalData.length > 0 && historicalData[0].low !== undefined
+    ? historicalData.map(d => (d as any).low || d.price)
+    : prices.map(p => p * 0.98); // Estimate 2% lower
+
+  const stochastic = calculateStochastic(highs, lows, prices, 14, 3);
+  const adx = calculateADX(highs, lows, prices, 14);
 
   // Determine trend
   let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
@@ -153,15 +292,31 @@ export function calculateIndicators(
   if (currentPrice > sma20 && sma20 > sma50) buySignals.push(1);
   else if (currentPrice < sma20 && sma20 < sma50) sellSignals.push(1);
 
+  // Bollinger Bands signals
+  if (currentPrice < bollinger.lower) buySignals.push(1); // Oversold
+  else if (currentPrice > bollinger.upper) sellSignals.push(1); // Overbought
+
+  // Stochastic signals
+  if (stochastic.k < 20 && stochastic.d < 20) buySignals.push(1); // Oversold
+  else if (stochastic.k > 80 && stochastic.d > 80) sellSignals.push(1); // Overbought
+
+  // ADX signals (strength of trend)
+  // ADX > 25 indicates strong trend, which strengthens other signals
+  if (adx > 25) {
+    if (trend === 'bullish') buySignals.push(1);
+    else if (trend === 'bearish') sellSignals.push(1);
+  }
+
   const buyScore = buySignals.length;
   const sellScore = sellSignals.length;
+  const maxSignals = 7; // Updated max signals count
 
   if (buyScore > sellScore && buyScore >= 2) {
     recommendation = 'buy';
-    confidence = Math.min((buyScore / 4) * 100, 95);
+    confidence = Math.min((buyScore / maxSignals) * 100, 95);
   } else if (sellScore > buyScore && sellScore >= 2) {
     recommendation = 'sell';
-    confidence = Math.min((sellScore / 4) * 100, 95);
+    confidence = Math.min((sellScore / maxSignals) * 100, 95);
   } else {
     recommendation = 'hold';
     confidence = Math.max(50 - Math.abs(buyScore - sellScore) * 10, 20);
@@ -173,6 +328,9 @@ export function calculateIndicators(
     sma20,
     sma50,
     sma200,
+    bollinger,
+    stochastic,
+    adx,
     trend,
     recommendation,
     confidence,
