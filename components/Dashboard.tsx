@@ -152,8 +152,8 @@ export default function Dashboard() {
         const typeHint = searchType === 'crypto' 
           ? 'Try searching for a crypto name/symbol (e.g., bitcoin, BTC).'
           : searchType === 'stock'
-          ? 'Try searching for a stock symbol (e.g., AAPL, TSLA).'
-          : 'Try searching for a crypto name/symbol (e.g., bitcoin, BTC) or stock symbol (e.g., AAPL, TSLA).';
+          ? 'Try searching for a stock symbol (e.g., AAPL, RELIANCE.NS, VOD.L).'
+          : 'Try searching for a crypto name/symbol (e.g., bitcoin, BTC) or stock symbol (e.g., AAPL, RELIANCE.NS).';
         
         setSearchError(`No results found for "${query}".${suggestion} ${typeHint}`);
       }
@@ -238,8 +238,8 @@ export default function Dashboard() {
                 searchType === 'crypto'
                   ? 'Search cryptocurrencies (e.g., bitcoin, BTC)...'
                   : searchType === 'stock'
-                  ? 'Search stocks (e.g., AAPL, TSLA)...'
-                  : 'Search crypto or stocks (e.g., bitcoin, BTC, AAPL, TSLA)...'
+                  ? 'Search stocks (e.g., AAPL, RELIANCE.NS, VOD.L)...'
+                  : 'Search crypto or stocks (e.g., bitcoin, BTC, AAPL, RELIANCE.NS)...'
               }
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
@@ -498,7 +498,7 @@ export default function Dashboard() {
                         </p>
                       )}
                       <p className="text-sm text-gray-500">
-                        Try searching for a crypto name/symbol (e.g., bitcoin, BTC) or stock symbol (e.g., AAPL, TSLA)
+                        Try searching for a crypto name/symbol (e.g., bitcoin, BTC) or stock symbol (e.g., AAPL, RELIANCE.NS, VOD.L)
                       </p>
                     </div>
                   )}
@@ -521,6 +521,7 @@ export default function Dashboard() {
                 }
                 name={selectedAsset.name || ''}
                 assetType={selectedAssetType}
+                currency={selectedAssetType === 'stock' ? (selectedAsset as StockData).currency : undefined}
                 geminiApiKey={typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key') || undefined : undefined}
               />
               <SentimentPanel asset={selectedAsset} type={selectedAssetType} />

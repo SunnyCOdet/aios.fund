@@ -2,6 +2,7 @@
 
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import type { StockData } from '@/lib/api';
+import { formatCurrency } from '@/lib/currency';
 
 interface StockCardProps {
   stock: StockData;
@@ -10,6 +11,7 @@ interface StockCardProps {
 
 export default function StockCard({ stock, onClick }: StockCardProps) {
   const isPositive = stock.change >= 0;
+  const currency = stock.currency || 'USD';
 
   return (
     <div
@@ -23,7 +25,9 @@ export default function StockCard({ stock, onClick }: StockCardProps) {
         </div>
 
         <div className="text-right">
-          <p className="text-2xl font-bold text-white">${stock.price.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-white">
+            {formatCurrency(stock.price, currency)}
+          </p>
           <div
             className={`flex items-center gap-1 mt-1 ${
               isPositive ? 'text-white' : 'text-gray-500'
@@ -36,7 +40,7 @@ export default function StockCard({ stock, onClick }: StockCardProps) {
             )}
             <span className="font-semibold">
               {isPositive ? '+' : ''}
-              {stock.change.toFixed(2)} ({isPositive ? '+' : ''}
+              {formatCurrency(stock.change, currency)} ({isPositive ? '+' : ''}
               {stock.changePercent.toFixed(2)}%)
             </span>
           </div>
@@ -46,11 +50,15 @@ export default function StockCard({ stock, onClick }: StockCardProps) {
       <div className="mt-4 pt-4 border-t border-white/[0.1] grid grid-cols-3 gap-4 text-sm">
         <div>
           <p className="text-gray-400">High</p>
-          <p className="font-semibold text-white">${stock.high.toFixed(2)}</p>
+          <p className="font-semibold text-white">
+            {formatCurrency(stock.high, currency)}
+          </p>
         </div>
         <div>
           <p className="text-gray-400">Low</p>
-          <p className="font-semibold text-white">${stock.low.toFixed(2)}</p>
+          <p className="font-semibold text-white">
+            {formatCurrency(stock.low, currency)}
+          </p>
         </div>
         <div>
           <p className="text-gray-400">Volume</p>

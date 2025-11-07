@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { fetchFromExchange } from './exchange-apis';
 
 // CoinGecko API (free, no key needed)
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
@@ -34,7 +35,8 @@ export interface StockData {
   high: number;
   low: number;
   open: number;
-  marketCap?: number; // Market capitalization in USD
+  marketCap?: number; // Market capitalization in local currency
+  currency?: string; // Currency code (USD, INR, GBP, EUR, etc.)
 }
 
 export interface HistoricalData {
@@ -126,127 +128,318 @@ export async function getCryptoHistory(
   }
 }
 
-// Fetch stock data using Yahoo Finance API (free, no key required)
-export async function getStockQuote(symbol: string): Promise<StockData | null> {
-  try {
-    // Try Yahoo Finance first (free, no API key needed)
-    // Using a more reliable endpoint with proper headers
-    const yahooResponse = await axios.get(`${YAHOO_FINANCE_API}/${symbol.toUpperCase()}`, {
-      params: {
-        interval: '1d',
-        range: '1d',
-        includePrePost: 'false',
-      },
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-      },
-      timeout: 15000,
-      validateStatus: (status) => status < 500, // Accept 4xx as valid responses
-    });
+/**
+ * Common exchange suffixes for international stocks
+ * Yahoo Finance uses these suffixes to identify exchanges
+ */
+const EXCHANGE_SUFFIXES: { [key: string]: string[] } = {
+  // India
+  'NSE': ['.NS'], // National Stock Exchange
+  'BSE': ['.BO'], // Bombay Stock Exchange
+  // UK
+  'LSE': ['.L'], // London Stock Exchange
+  // Japan
+  'TSE': ['.T'], // Tokyo Stock Exchange
+  // Canada
+  'TSX': ['.TO'], // Toronto Stock Exchange
+  'TSXV': ['.V'], // TSX Venture Exchange
+  // Australia
+  'ASX': ['.AX'], // Australian Securities Exchange
+  // Germany
+  'XETR': ['.DE'], // XETRA
+  // France
+  'EPA': ['.PA'], // Euronext Paris
+  // Netherlands
+  'AMS': ['.AS'], // Euronext Amsterdam
+  // Switzerland
+  'SWX': ['.SW'], // SIX Swiss Exchange
+  // Hong Kong
+  'HKG': ['.HK'], // Hong Kong Stock Exchange
+  // China
+  'SSE': ['.SS'], // Shanghai Stock Exchange
+  'SZSE': ['.SZ'], // Shenzhen Stock Exchange
+  // Brazil
+  'BVMF': ['.SA'], // B3 (Brazil Stock Exchange)
+  // South Korea
+  'KRX': ['.KS'], // Korea Exchange
+  // Mexico
+  'BMV': ['.MX'], // Mexican Stock Exchange
+};
 
-    // Check if we got valid data
-    if (yahooResponse.data?.chart?.result?.[0]) {
-      const result = yahooResponse.data.chart.result[0];
-      const meta = result.meta;
-      
-      // Check if symbol exists
-      if (!meta || !meta.symbol) {
-        throw new Error(`Stock symbol "${symbol.toUpperCase()}" not found.`);
-      }
-      
-      const quote = result.indicators?.quote?.[0];
-      const currentPrice = meta.regularMarketPrice || meta.previousClose || 0;
-      const previousClose = meta.previousClose || currentPrice;
-      const change = currentPrice - previousClose;
-      const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+/**
+ * Map exchange suffixes to currency codes (fallback only - API should provide this)
+ * Only used when Yahoo Finance API doesn't return currency information
+ */
+const EXCHANGE_TO_CURRENCY: { [key: string]: string } = {
+  '.NS': 'INR', // India NSE
+  '.BO': 'INR', // India BSE
+  '.L': 'GBP', // UK LSE
+  '.T': 'JPY', // Japan TSE
+  '.TO': 'CAD', // Canada TSX
+  '.V': 'CAD', // Canada TSXV
+  '.AX': 'AUD', // Australia ASX
+  '.DE': 'EUR', // Germany XETRA
+  '.PA': 'EUR', // France Euronext Paris
+  '.AS': 'EUR', // Netherlands Euronext Amsterdam
+  '.SW': 'CHF', // Switzerland SIX
+  '.HK': 'HKD', // Hong Kong
+  '.SS': 'CNY', // China Shanghai
+  '.SZ': 'CNY', // China Shenzhen
+  '.SA': 'BRL', // Brazil
+  '.KS': 'KRW', // South Korea
+  '.MX': 'MXN', // Mexico
+};
 
-      if (currentPrice === 0) {
-        throw new Error(`No price data available for "${symbol.toUpperCase()}"`);
-      }
-
-      // Try to get market cap from Yahoo Finance meta
-      // Yahoo Finance provides marketCap in different possible locations
-      // Check multiple possible field names
-      const marketCap = meta.marketCap || 
-                       meta.marketMarketCap ||
-                       meta.regularMarketMarketCap ||
-                       meta.trailingMarketCap ||
-                       (meta.sharesOutstanding && currentPrice ? meta.sharesOutstanding * currentPrice : undefined);
-      
-      // Log for debugging (can be removed in production)
-      if (!marketCap && process.env.NODE_ENV === 'development') {
-        console.log('Market cap fields available:', {
-          marketCap: meta.marketCap,
-          marketMarketCap: meta.marketMarketCap,
-          regularMarketMarketCap: meta.regularMarketMarketCap,
-          sharesOutstanding: meta.sharesOutstanding,
-          availableFields: Object.keys(meta).filter(k => k.toLowerCase().includes('cap') || k.toLowerCase().includes('market'))
-        });
-      }
-
-      return {
-        symbol: meta.symbol,
-        name: meta.longName || meta.shortName || meta.symbol,
-        price: currentPrice,
-        change: change,
-        changePercent: changePercent,
-        volume: meta.regularMarketVolume || 0,
-        high: meta.regularMarketDayHigh || meta.currentTradingPeriod?.regular?.high || currentPrice,
-        low: meta.regularMarketDayLow || meta.currentTradingPeriod?.regular?.low || currentPrice,
-        open: meta.regularMarketOpen || meta.currentTradingPeriod?.regular?.open || previousClose,
-        marketCap: marketCap,
-      };
+/**
+ * Detect currency from symbol exchange suffix (fallback only)
+ * This should only be used when the API doesn't provide currency information
+ */
+function detectCurrencyFromSymbol(symbol: string): string | null {
+  const upperSymbol = symbol.toUpperCase();
+  for (const [suffix, currency] of Object.entries(EXCHANGE_TO_CURRENCY)) {
+    if (upperSymbol.endsWith(suffix)) {
+      return currency;
     }
+  }
+  return null; // Return null to indicate we couldn't detect it
+}
 
-    // If no data in response, try fallback
+/**
+ * Get exchange suffix suggestions for a symbol
+ */
+function getExchangeSuffixes(symbol: string): string[] {
+  const upperSymbol = symbol.toUpperCase();
+  const suffixes: string[] = [];
+  
+  // If symbol already has a suffix, return empty
+  if (upperSymbol.includes('.')) {
+    return [];
+  }
+  
+  // Return common suffixes to try
+  return ['.NS', '.BO', '.L', '.T', '.TO', '.AX', '.DE', '.PA', '.AS', '.SW', '.HK', '.SS', '.SZ', '.SA', '.KS', '.MX'];
+}
+
+/**
+ * Try fetching stock with different symbol formats
+ */
+async function tryFetchWithSuffixes(
+  baseSymbol: string,
+  suffixes: string[]
+): Promise<StockData | null> {
+  // Try base symbol first
+  try {
+    const result = await fetchStockFromYahoo(baseSymbol);
+    if (result) return result;
+  } catch (e) {
+    // Continue to try suffixes
+  }
+  
+  // Try with each suffix
+  for (const suffix of suffixes) {
+    try {
+      const symbolWithSuffix = baseSymbol + suffix;
+      const result = await fetchStockFromYahoo(symbolWithSuffix);
+      if (result) return result;
+    } catch (e) {
+      // Continue to next suffix
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Fetch stock data from Yahoo Finance (internal helper)
+ */
+async function fetchStockFromYahoo(symbol: string): Promise<StockData> {
+  const yahooResponse = await axios.get(`${YAHOO_FINANCE_API}/${symbol.toUpperCase()}`, {
+    params: {
+      interval: '1d',
+      range: '1d',
+      includePrePost: 'false',
+    },
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json',
+    },
+    timeout: 15000,
+    validateStatus: (status) => status < 500,
+  });
+
+  if (!yahooResponse.data?.chart?.result?.[0]) {
     if (yahooResponse.data?.chart?.error) {
       throw new Error(yahooResponse.data.chart.error.description || 'Yahoo Finance API error');
     }
-
     throw new Error('Yahoo Finance API returned no data');
-  } catch (yahooError: any) {
-    // Fallback to Alpha Vantage API
+  }
+
+  const result = yahooResponse.data.chart.result[0];
+  const meta = result.meta;
+  
+  if (!meta || !meta.symbol) {
+    throw new Error(`Stock symbol "${symbol.toUpperCase()}" not found.`);
+  }
+  
+  const currentPrice = meta.regularMarketPrice || meta.previousClose || 0;
+  const previousClose = meta.previousClose || currentPrice;
+  const change = currentPrice - previousClose;
+  const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+
+  if (currentPrice === 0) {
+    throw new Error(`No price data available for "${symbol.toUpperCase()}"`);
+  }
+
+  const marketCap = meta.marketCap || 
+                   meta.marketMarketCap ||
+                   meta.regularMarketMarketCap ||
+                   meta.trailingMarketCap ||
+                   (meta.sharesOutstanding && currentPrice ? meta.sharesOutstanding * currentPrice : undefined);
+
+  // Get currency directly from Yahoo Finance API response
+  // Check multiple possible fields where currency might be stored
+  let currency: string | null = null;
+  
+  // Try to get currency from API response (primary source - this is what we want!)
+  if (meta.currency) {
+    currency = meta.currency;
+  } else if (meta.currencyCode) {
+    currency = meta.currencyCode;
+  } else if (meta.currencySymbol) {
+    // currencySymbol might be like "USD" or "$" - try to normalize it
+    const symbol = meta.currencySymbol.toUpperCase();
+    currency = symbol.length === 3 ? symbol : null; // Only use if it's a 3-letter code
+  } else if (meta.quoteCurrency) {
+    currency = meta.quoteCurrency;
+  } else if (meta.originalCurrency) {
+    currency = meta.originalCurrency;
+  }
+  
+  // Debug: Log available currency fields in development (helps verify API response)
+  if (process.env.NODE_ENV === 'development' && !currency) {
+    const currencyFields = {
+      currency: meta.currency,
+      currencyCode: meta.currencyCode,
+      currencySymbol: meta.currencySymbol,
+      quoteCurrency: meta.quoteCurrency,
+      originalCurrency: meta.originalCurrency,
+    };
+    console.log(`[Currency Debug] Symbol: ${meta.symbol}, Available fields:`, currencyFields);
+  }
+  
+  // Fallback: only use symbol-based detection if API didn't provide currency
+  if (!currency) {
+    currency = detectCurrencyFromSymbol(meta.symbol);
+  }
+  
+  // Final fallback to USD
+  currency = currency || 'USD';
+
+  return {
+    symbol: meta.symbol,
+    name: meta.longName || meta.shortName || meta.symbol,
+    price: currentPrice,
+    change: change,
+    changePercent: changePercent,
+    volume: meta.regularMarketVolume || 0,
+    high: meta.regularMarketDayHigh || meta.currentTradingPeriod?.regular?.high || currentPrice,
+    low: meta.regularMarketDayLow || meta.currentTradingPeriod?.regular?.low || currentPrice,
+    open: meta.regularMarketOpen || meta.currentTradingPeriod?.regular?.open || previousClose,
+    marketCap: marketCap,
+    currency: currency,
+  };
+}
+
+// Fetch stock data using Yahoo Finance API (free, no key required)
+export async function getStockQuote(symbol: string): Promise<StockData | null> {
+  const upperSymbol = symbol.toUpperCase().trim();
+  
+  // FIRST: Try to fetch directly from the respective stock exchange API
+  // This gets data directly from NSE, BSE, LSE, TSE, TSX, ASX, etc.
+  if (upperSymbol.includes('.')) {
     try {
-      const response = await axios.get(ALPHA_VANTAGE_API, {
-        params: {
-          function: 'GLOBAL_QUOTE',
-          symbol: symbol.toUpperCase(),
-          apikey: ALPHA_VANTAGE_KEY,
-        },
-        timeout: 10000,
-      });
+      const exchangeData = await fetchFromExchange(upperSymbol);
+      if (exchangeData) {
+        // Convert ExchangeStockData to StockData format
+        return {
+          symbol: exchangeData.symbol,
+          name: exchangeData.name,
+          price: exchangeData.price,
+          change: exchangeData.change,
+          changePercent: exchangeData.changePercent,
+          volume: exchangeData.volume,
+          high: exchangeData.high,
+          low: exchangeData.low,
+          open: exchangeData.open,
+          marketCap: exchangeData.marketCap,
+          currency: exchangeData.currency,
+        };
+      }
+    } catch (exchangeError) {
+      // If exchange API fails, continue to Yahoo Finance fallback
+      console.log(`Exchange API failed for ${upperSymbol}, falling back to Yahoo Finance`);
+    }
+  }
+  
+  // SECOND: Fall back to Yahoo Finance (works for all exchanges)
+  // If symbol already has exchange suffix, try it directly
+  if (upperSymbol.includes('.')) {
+    try {
+      return await fetchStockFromYahoo(upperSymbol);
+    } catch (yahooError: any) {
+      // Fall through to Alpha Vantage fallback
+    }
+  } else {
+    // Try without suffix first, then with common suffixes
+    const suffixes = getExchangeSuffixes(upperSymbol);
+    const result = await tryFetchWithSuffixes(upperSymbol, suffixes);
+    if (result) return result;
+  }
 
-      // Check for Alpha Vantage API error messages
-      if (response.data['Error Message']) {
-        throw new Error(response.data['Error Message']);
-      }
-      
-      if (response.data['Note']) {
-        throw new Error('API rate limit exceeded. Please try again later.');
-      }
-      
-      if (response.data['Information']) {
-        throw new Error('API call frequency limit exceeded. Get a free key at https://www.alphavantage.co/support/#api-key');
-      }
+  // If Yahoo Finance fails, try Alpha Vantage as fallback
+  try {
+    const response = await axios.get(ALPHA_VANTAGE_API, {
+      params: {
+        function: 'GLOBAL_QUOTE',
+        symbol: upperSymbol.split('.')[0], // Remove exchange suffix for Alpha Vantage
+        apikey: ALPHA_VANTAGE_KEY,
+      },
+      timeout: 10000,
+    });
 
-      const quote = response.data['Global Quote'];
-      
-      if (!quote || !quote['01. symbol']) {
-        throw new Error(`Stock symbol "${symbol.toUpperCase()}" not found. Please check the symbol.`);
-      }
-      
-      if (quote['05. price'] === undefined || quote['05. price'] === '0.0000') {
-        throw new Error(`No price data available for "${symbol.toUpperCase()}"`);
-      }
+    // Check for Alpha Vantage API error messages
+    if (response.data['Error Message']) {
+      throw new Error(response.data['Error Message']);
+    }
+    
+    if (response.data['Note']) {
+      throw new Error('API rate limit exceeded. Please try again later.');
+    }
+    
+    if (response.data['Information']) {
+      throw new Error('API call frequency limit exceeded. Get a free key at https://www.alphavantage.co/support/#api-key');
+    }
 
-      const price = parseFloat(quote['05. price']);
-      const change = parseFloat(quote['09. change'] || '0');
-      const changePercentStr = quote['10. change percent'] || '0%';
-      const changePercent = parseFloat(changePercentStr.replace('%', ''));
+    const quote = response.data['Global Quote'];
+    
+    if (!quote || !quote['01. symbol']) {
+      throw new Error(`Stock symbol "${upperSymbol}" not found. Please check the symbol.`);
+    }
+    
+    if (quote['05. price'] === undefined || quote['05. price'] === '0.0000') {
+      throw new Error(`No price data available for "${upperSymbol}"`);
+    }
+
+    const price = parseFloat(quote['05. price']);
+    const change = parseFloat(quote['09. change'] || '0');
+    const changePercentStr = quote['10. change percent'] || '0%';
+    const changePercent = parseFloat(changePercentStr.replace('%', ''));
 
       // Alpha Vantage doesn't provide market cap directly, so we'll leave it undefined
       // The UI will handle showing '--' if market cap is not available
+      // Alpha Vantage doesn't provide currency, so detect from symbol as fallback
+      const currency = detectCurrencyFromSymbol(upperSymbol) || 'USD';
+      
       return {
         symbol: quote['01. symbol'],
         name: quote['01. symbol'],
@@ -258,18 +451,31 @@ export async function getStockQuote(symbol: string): Promise<StockData | null> {
         low: parseFloat(quote['04. low'] || '0'),
         open: parseFloat(quote['02. open'] || '0'),
         marketCap: undefined, // Alpha Vantage doesn't provide market cap
+        currency: currency,
       };
-    } catch (alphaError: any) {
-      // If both fail, provide a helpful error message
-      const yahooMsg = yahooError?.message || 'Unknown error';
-      const alphaMsg = alphaError?.message || 'Unknown error';
-      
-      throw new Error(
-        `Unable to fetch stock data for "${symbol.toUpperCase()}". ` +
-        `Yahoo Finance: ${yahooMsg}. Alpha Vantage: ${alphaMsg}. ` +
-        `Please verify the symbol is correct and try again.`
-      );
+  } catch (alphaError: any) {
+    // If both fail, provide a helpful error message with international stock guidance
+    const baseSymbol = upperSymbol.split('.')[0]; // Remove suffix if present
+    const hasSuffix = upperSymbol.includes('.');
+    
+    let errorMsg = `Unable to fetch stock data for "${upperSymbol}".\n\n`;
+    
+    if (!hasSuffix) {
+      errorMsg += `💡 For international stocks, try adding an exchange suffix:\n`;
+      errorMsg += `   • India (NSE): ${baseSymbol}.NS (e.g., RELIANCE.NS, TCS.NS)\n`;
+      errorMsg += `   • India (BSE): ${baseSymbol}.BO (e.g., RELIANCE.BO)\n`;
+      errorMsg += `   • UK (LSE): ${baseSymbol}.L (e.g., VOD.L)\n`;
+      errorMsg += `   • Japan (TSE): ${baseSymbol}.T (e.g., 7203.T)\n`;
+      errorMsg += `   • Canada (TSX): ${baseSymbol}.TO (e.g., SHOP.TO)\n`;
+      errorMsg += `   • Australia (ASX): ${baseSymbol}.AX (e.g., BHP.AX)\n`;
+      errorMsg += `   • Germany (XETRA): ${baseSymbol}.DE (e.g., SAP.DE)\n`;
+      errorMsg += `   • Hong Kong: ${baseSymbol}.HK (e.g., 0700.HK)\n`;
+      errorMsg += `   • And many more...\n\n`;
     }
+    
+    errorMsg += `If the symbol is correct, the stock may not be available or the market may be closed.`;
+    
+    throw new Error(errorMsg);
   }
 }
 

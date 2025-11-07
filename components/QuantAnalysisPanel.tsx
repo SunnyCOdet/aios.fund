@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, BarChart3, Activity, Shield, Target } from 'lucide-react';
+import { formatCurrency, formatLargeCurrency } from '@/lib/currency';
 
 // Helper function to safely render values that might be objects
 function renderValue(value: any): string {
@@ -32,6 +33,7 @@ interface QuantAnalysisPanelProps {
   name: string;
   assetType: 'stock' | 'crypto';
   geminiApiKey?: string;
+  currency?: string; // Currency code for stocks
   onAnalysisComplete?: (analysis: any) => void;
 }
 
@@ -40,6 +42,7 @@ export default function QuantAnalysisPanel({
   name,
   assetType,
   geminiApiKey,
+  currency = 'USD',
   onAnalysisComplete,
 }: QuantAnalysisPanelProps) {
   const [loading, setLoading] = useState(false);
@@ -163,11 +166,11 @@ export default function QuantAnalysisPanel({
       {/* Content */}
       <div className="p-6 max-h-[600px] overflow-y-auto">
         {activeTab === 'overview' && <OverviewTab quant={quant} ai={ai} />}
-        {activeTab === 'financial' && <FinancialTab quant={quant} />}
-        {activeTab === 'statistical' && <StatisticalTab quant={quant} />}
+        {activeTab === 'financial' && <FinancialTab quant={quant} currency={currency} />}
+        {activeTab === 'statistical' && <StatisticalTab quant={quant} currency={currency} />}
         {activeTab === 'risk' && <RiskTab quant={quant} />}
-        {activeTab === 'signals' && <SignalsTab quant={quant} ai={ai} />}
-        {activeTab === 'ai' && ai && <AITab ai={ai} />}
+        {activeTab === 'signals' && <SignalsTab quant={quant} ai={ai} currency={currency} />}
+        {activeTab === 'ai' && ai && <AITab ai={ai} currency={currency} />}
       </div>
     </div>
   );
@@ -264,7 +267,7 @@ function OverviewTab({ quant, ai }: any) {
   );
 }
 
-function FinancialTab({ quant }: any) {
+function FinancialTab({ quant, currency }: { quant: any; currency: string }) {
   const metrics = quant.financialMetrics;
 
   return (
@@ -279,7 +282,7 @@ function FinancialTab({ quant }: any) {
             <MetricItem label="P/E Ratio" value={metrics.peRatio.toFixed(2)} />
           )}
           {metrics.eps !== undefined && (
-            <MetricItem label="EPS" value={`$${metrics.eps.toFixed(2)}`} />
+            <MetricItem label="EPS" value={formatCurrency(metrics.eps, currency)} />
           )}
           {metrics.profitMargin !== undefined && (
             <MetricItem label="Profit Margin" value={`${(metrics.profitMargin * 100).toFixed(2)}%`} />
@@ -297,7 +300,7 @@ function FinancialTab({ quant }: any) {
             <MetricItem label="Debt-to-Equity" value={metrics.debtToEquity.toFixed(2)} />
           )}
           {metrics.marketCap !== undefined && (
-            <MetricItem label="Market Cap" value={`$${(metrics.marketCap / 1e9).toFixed(2)}B`} />
+            <MetricItem label="Market Cap" value={formatLargeCurrency(metrics.marketCap, currency)} />
           )}
         </div>
       )}
@@ -305,7 +308,7 @@ function FinancialTab({ quant }: any) {
   );
 }
 
-function StatisticalTab({ quant }: any) {
+function StatisticalTab({ quant, currency }: { quant: any; currency: string }) {
   const stats = quant.statisticalAnalysis;
 
   return (
@@ -313,9 +316,9 @@ function StatisticalTab({ quant }: any) {
       <h3 className="text-lg font-semibold text-white">Statistical Analysis</h3>
       
       <div className="grid grid-cols-2 gap-4">
-        <MetricItem label="Mean Price" value={`$${stats.mean.toFixed(2)}`} />
-        <MetricItem label="Median Price" value={`$${stats.median.toFixed(2)}`} />
-        <MetricItem label="Std Deviation" value={`$${stats.stdDev.toFixed(2)}`} />
+        <MetricItem label="Mean Price" value={formatCurrency(stats.mean, currency)} />
+        <MetricItem label="Median Price" value={formatCurrency(stats.median, currency)} />
+        <MetricItem label="Std Deviation" value={formatCurrency(stats.stdDev, currency)} />
         <MetricItem label="Volatility (Annual)" value={`${(stats.annualizedVolatility * 100).toFixed(2)}%`} />
         <MetricItem label="Skewness" value={stats.skewness.toFixed(3)} />
         <MetricItem label="Kurtosis" value={stats.kurtosis.toFixed(3)} />
@@ -372,7 +375,7 @@ function RiskTab({ quant }: any) {
   );
 }
 
-function SignalsTab({ quant, ai }: any) {
+function SignalsTab({ quant, ai, currency }: { quant: any; ai: any; currency: string }) {
   const signals = quant.tradingSignals;
 
   return (
@@ -427,18 +430,18 @@ function SignalsTab({ quant, ai }: any) {
             <div className="grid grid-cols-3 gap-2 text-sm">
               <div>
                 <span className="text-gray-400">Target:</span>
-                <span className="text-green-400 font-bold ml-1">${ai.finalRecommendation.priceTarget.toFixed(2)}</span>
+                <span className="text-green-400 font-bold ml-1">{formatCurrency(ai.finalRecommendation.priceTarget, currency)}</span>
               </div>
               {ai.finalRecommendation.stopLoss && (
                 <div>
                   <span className="text-gray-400">Stop Loss:</span>
-                  <span className="text-red-400 font-bold ml-1">${ai.finalRecommendation.stopLoss.toFixed(2)}</span>
+                  <span className="text-red-400 font-bold ml-1">{formatCurrency(ai.finalRecommendation.stopLoss, currency)}</span>
                 </div>
               )}
               {ai.finalRecommendation.takeProfit && (
                 <div>
                   <span className="text-gray-400">Take Profit:</span>
-                  <span className="text-green-400 font-bold ml-1">${ai.finalRecommendation.takeProfit.toFixed(2)}</span>
+                  <span className="text-green-400 font-bold ml-1">{formatCurrency(ai.finalRecommendation.takeProfit, currency)}</span>
                 </div>
               )}
             </div>
@@ -449,7 +452,7 @@ function SignalsTab({ quant, ai }: any) {
   );
 }
 
-function AITab({ ai }: any) {
+function AITab({ ai, currency }: { ai: any; currency: string }) {
   if (!ai) return null;
 
   return (

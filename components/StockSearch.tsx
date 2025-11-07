@@ -66,7 +66,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       <div className="flex gap-2 mb-4">
         <input
           type="text"
-          placeholder="Enter stock symbol (e.g., AAPL, MSFT, TSLA)"
+          placeholder="Enter stock symbol (e.g., AAPL, RELIANCE.NS, VOD.L)"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
           onKeyPress={handleKeyPress}
@@ -83,7 +83,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm">
+        <div className="mb-4 p-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm whitespace-pre-line">
           {error}
         </div>
       )}
@@ -102,23 +102,67 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       )}
 
       <div className="mt-4 pt-4 border-t border-white/[0.1]">
-        <p className="text-xs text-gray-400 mb-2">Popular Stocks:</p>
-        <div className="flex flex-wrap gap-2">
-          {['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META'].map((sym) => (
-            <button
-              key={sym}
-              onClick={() => {
-                setSymbol(sym);
-                handleSearch();
-              }}
-              disabled={loading}
-              className="px-3 py-1 bg-white/[0.05] hover:bg-white/[0.1] rounded-full text-xs transition-colors text-gray-300 border border-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {sym}
-            </button>
-          ))}
+        <p className="text-xs text-gray-400 mb-2">Popular Stocks (Global):</p>
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-gray-500 mb-1.5">🇺🇸 US Stocks:</p>
+            <div className="flex flex-wrap gap-2">
+              {['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META'].map((sym) => (
+                <button
+                  key={sym}
+                  onClick={() => {
+                    setSymbol(sym);
+                    handleSearch();
+                  }}
+                  disabled={loading}
+                  className="px-3 py-1 bg-white/[0.05] hover:bg-white/[0.1] rounded-full text-xs transition-colors text-gray-300 border border-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1.5">🇮🇳 India (NSE):</p>
+            <div className="flex flex-wrap gap-2">
+              {['RELIANCE.NS', 'TCS.NS', 'INFY.NS', 'HDFCBANK.NS', 'ICICIBANK.NS'].map((sym) => (
+                <button
+                  key={sym}
+                  onClick={() => {
+                    setSymbol(sym);
+                    handleSearch();
+                  }}
+                  disabled={loading}
+                  className="px-3 py-1 bg-white/[0.05] hover:bg-white/[0.1] rounded-full text-xs transition-colors text-gray-300 border border-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1.5">🌍 Other International:</p>
+            <div className="flex flex-wrap gap-2">
+              {['VOD.L', 'SHOP.TO', 'BHP.AX', 'SAP.DE', '0700.HK'].map((sym) => (
+                <button
+                  key={sym}
+                  onClick={() => {
+                    setSymbol(sym);
+                    handleSearch();
+                  }}
+                  disabled={loading}
+                  className="px-3 py-1 bg-white/[0.05] hover:bg-white/[0.1] rounded-full text-xs transition-colors text-gray-300 border border-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <p className="text-xs text-gray-500 mt-3">
+          💡 For international stocks, add exchange suffix (e.g., .NS for India NSE, .L for UK, .TO for Canada)
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
           Using free Yahoo Finance API (no key required). Falls back to Alpha Vantage if needed.
         </p>
       </div>

@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import type { CryptoData } from '@/lib/api';
+import { formatCurrency, formatLargeCurrency } from '@/lib/currency';
 
 interface CryptoCardProps {
   crypto: CryptoData;
@@ -36,7 +37,7 @@ export default function CryptoCard({ crypto, onClick }: CryptoCardProps) {
 
         <div className="text-right">
           <p className="text-2xl font-bold text-white">
-            ${crypto.current_price.toLocaleString(undefined, {
+            {formatCurrency(crypto.current_price ?? 0, 'USD', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 6,
             })}
@@ -62,13 +63,13 @@ export default function CryptoCard({ crypto, onClick }: CryptoCardProps) {
         <div>
           <p className="text-gray-400">Market Cap</p>
           <p className="font-semibold text-white">
-            ${(crypto.market_cap / 1e9).toFixed(2)}B
+            {formatLargeCurrency(crypto.market_cap ?? 0, 'USD')}
           </p>
         </div>
         <div>
           <p className="text-gray-400">Volume (24h)</p>
           <p className="font-semibold text-white">
-            ${(crypto.total_volume / 1e9).toFixed(2)}B
+            {formatLargeCurrency(crypto.total_volume ?? 0, 'USD')}
           </p>
         </div>
       </div>
