@@ -2,6 +2,8 @@
 
 This document captures the end-to-end architecture for the **Next-Level Market Intelligence Platform**. The product is a Next.js application that aggregates multi-asset market data, performs quantitative analysis (classical + AI-assisted), and surfaces insights through a rich dashboard UI.
 
+> **📘 Backend System Design**: For comprehensive backend architecture, scalability, performance optimization, security, and deployment strategies, see [backend-system-design.md](./backend-system-design.md).
+
 ---
 
 ## High-Level Architecture
@@ -132,6 +134,7 @@ All route handlers respond with JSON, use server-side `fetch`/`axios` for third-
 
 ## Change Log
 
+- **2025-01-15**: Added reference to comprehensive backend system design document. Backend architecture now documented separately with production-grade patterns, scalability strategies, and best practices.
 - **2025-11-07**: Initial version documenting current architecture, data flows, and integrations after introducing direct exchange APIs and currency-aware UI formatting.
 
 
