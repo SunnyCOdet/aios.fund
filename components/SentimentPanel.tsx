@@ -36,6 +36,7 @@ export default function SentimentPanel({ asset, type }: SentimentPanelProps) {
 
   useEffect(() => {
     loadSentiment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asset, type]);
 
   const loadSentiment = async () => {

@@ -491,7 +491,7 @@ export default function Dashboard() {
                   {/* Show message when searching but no results */}
                   {searchQuery && cryptos.length === 0 && stocks.length === 0 && !loading && (
                     <div className="text-center py-12 text-gray-400">
-                      <p className="mb-2">No results found for "{searchQuery}"</p>
+                      <p className="mb-2">No results found for &quot;{searchQuery}&quot;</p>
                       {searchQuery.trim().toUpperCase() === 'APPL' && (
                         <p className="text-sm text-white mb-2">
                           💡 Did you mean <button onClick={() => handleSearch('AAPL')} className="underline hover:text-gray-300">AAPL</button>?

@@ -54,6 +54,7 @@ export default function QuantAnalysisPanel({
     if (symbol) {
       performAnalysis();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, geminiApiKey]);
 
   const performAnalysis = async () => {

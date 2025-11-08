@@ -51,7 +51,7 @@ export default function Portfolio() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [holdings.length]);
+  }, [holdings]);
 
   useEffect(() => {
     // Save to localStorage whenever holdings change

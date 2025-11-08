@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell, Plus, Trash2, AlertCircle } from 'lucide-react';
 import type { CryptoData, StockData } from '@/lib/api';
 
@@ -29,35 +29,7 @@ export default function PriceAlerts() {
   });
   const [checking, setChecking] = useState(false);
 
-  useEffect(() => {
-    // Load alerts from localStorage
-    const saved = localStorage.getItem('priceAlerts');
-    if (saved) {
-      const savedAlerts = JSON.parse(saved);
-      setAlerts(savedAlerts);
-      checkAlerts(savedAlerts);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Check alerts every 30 seconds
-    if (alerts.length === 0) return;
-    
-    const interval = setInterval(() => {
-      checkAlerts(alerts);
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [alerts.length]);
-
-  useEffect(() => {
-    // Save to localStorage whenever alerts change
-    if (alerts.length > 0) {
-      localStorage.setItem('priceAlerts', JSON.stringify(alerts));
-    }
-  }, [alerts]);
-
-  const checkAlerts = async (currentAlerts: PriceAlert[]) => {
+  const checkAlerts = useCallback(async (currentAlerts: PriceAlert[]) => {
     if (checking) return;
     setChecking(true);
 
@@ -103,7 +75,7 @@ export default function PriceAlerts() {
               }
 
               // Show browser alert as fallback
-              alert(`🚨 Price Alert!\n\n${alert.name} (${alert.symbol}) is now ${alert.condition} $${alert.targetPrice.toLocaleString()}\n\nCurrent Price: $${currentPrice.toLocaleString()}`);
+              window.alert(`🚨 Price Alert!\n\n${alert.name} (${alert.symbol}) is now ${alert.condition} $${alert.targetPrice.toLocaleString()}\n\nCurrent Price: $${currentPrice.toLocaleString()}`);
 
               return { ...alert, currentPrice, triggered: true };
             }
@@ -122,7 +94,36 @@ export default function PriceAlerts() {
     } finally {
       setChecking(false);
     }
-  };
+  }, [checking]);
+
+  useEffect(() => {
+    // Load alerts from localStorage
+    const saved = localStorage.getItem('priceAlerts');
+    if (saved) {
+      const savedAlerts = JSON.parse(saved);
+      setAlerts(savedAlerts);
+      checkAlerts(savedAlerts);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Check alerts every 30 seconds
+    if (alerts.length === 0) return;
+    
+    const interval = setInterval(() => {
+      checkAlerts(alerts);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [alerts, checkAlerts]);
+
+  useEffect(() => {
+    // Save to localStorage whenever alerts change
+    if (alerts.length > 0) {
+      localStorage.setItem('priceAlerts', JSON.stringify(alerts));
+    }
+  }, [alerts]);
 
   const requestNotificationPermission = () => {
     if ('Notification' in window && Notification.permission === 'default') {
